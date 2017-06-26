@@ -1,0 +1,300 @@
+{% extends 'base.html' %}
+
+{% block head-css %}
+    <link rel="stylesheet" href="/static/css/plugins/bootstrap-table/bootstrap-table.css">
+    <link rel="stylesheet" href="/static/css/plugins/bootstrap-table/bootstrap-editable.css">
+    <link rel="stylesheet" href="/static/css/plugins/bootstrap-table/examples.css">
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/respond.js/1.4.2/respond.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/json2/20140204/json2.min.js"></script>
+    <![endif]-->
+    <script async="" src="http://www.google-analytics.com/analytics.js"></script>
+    <script type="text/javascript">try {
+        var AG_onLoad=function(func){if(document.readyState==="complete"||document.readyState==="interactive")func();else if(document.addEventListener)document.addEventListener("DOMContentLoaded",func);else if(document.attachEvent)document.attachEvent("DOMContentLoaded",func)};
+        var AG_removeElementById = function(id) { var element = document.getElementById(id); if (element && element.parentNode) { element.parentNode.removeChild(element); }};
+        var AG_removeElementBySelector = function(selector) { if (!document.querySelectorAll) { return; } var nodes = document.querySelectorAll(selector); if (nodes) { for (var i = 0; i < nodes.length; i++) { if (nodes[i] && nodes[i].parentNode) { nodes[i].parentNode.removeChild(nodes[i]); } } } };
+        var AG_each = function(selector, fn) { if (!document.querySelectorAll) return; var elements = document.querySelectorAll(selector); for (var i = 0; i < elements.length; i++) { fn(elements[i]); }; };
+        var AG_removeParent = function(el, fn) { while (el && el.parentNode) { if (fn(el)) { el.parentNode.removeChild(el); return; } el = el.parentNode; } };
+        } catch (ex) { console.error('Error executing AG js: ' + ex); }
+    </script>
+{% endblock %}
+
+{% block body %}
+
+<div class="container">
+    <div id="toolbar">
+        <button id="remove" class="btn btn-danger" disabled>
+            <i class="glyphicon glyphicon-remove"></i> Delete
+        </button>
+    </div>
+    <table id="table"
+           data-toolbar="#toolbar"
+           data-search="true"
+           data-height="10"
+           data-show-refresh="true"
+           data-show-toggle="true"
+           data-show-columns="true"
+           data-show-export="true"
+           data-detail-view="true"
+           data-detail-formatter="detailFormatter"
+           data-minimum-count-columns="2"
+           data-show-pagination-switch="true"
+           data-pagination="true"
+           data-striped="true"
+           data-id-field="id"
+           data-page-list="[10, 25, 50, 100, ALL]"
+           data-show-footer="false"
+           data-side-pagination="server"
+           data-url="http://issues.wenzhixin.net.cn/examples/bootstrap_table/data"
+           data-response-handler="responseHandler">
+    </table>
+    <div class="modal inmodal" id="myModal2" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content animated flipInY">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+                    <h6 class="modal-title">修改信息</h6>
+                </div>
+                <div class="modal-body" style="min-height: 500px;">
+                    <p><strong>H+</strong> 是一个完全响应式，基于Bootstrap3.3.5最新版本开发的扁平化主题</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-white" data-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer-js %}
+    <script>
+    var $table = $('#table'),
+        $remove = $('#remove'),
+        selections = [];
+
+    function initTable() {
+        $table.bootstrapTable({
+            height: getHeight(),
+            columns: [
+                    {
+                        field: 'state',
+                        checkbox: true,
+                        align: 'center',
+                        valign: 'middle'
+                    }, {
+                        title: '商品ID',
+                        field: 'id',
+                        align: 'center',
+                        valign: 'middle',
+                        sortable: true,
+                        footerFormatter: totalTextFormatter
+                    },
+                    {
+                        field: 'name',
+                        title: '商品名称',
+                        sortable: true,
+                        editable: true,
+                        footerFormatter: totalNameFormatter,
+                        align: 'center'
+                    }, {
+                        field: 'price',
+                        title: '商品价格',
+                        sortable: true,
+                        align: 'center',
+                        editable: {
+                            type: 'text',
+                            title: '商品价格',
+                            validate: function (value) {
+                                value = $.trim(value);
+                                if (!value) {
+                                    return 'This field is required';
+                                }
+                                if (!/^\$/.test(value)) {
+                                    return 'This field needs to start width $.'
+                                }
+                                var data = $table.bootstrapTable('getData'),
+                                    index = $(this).parents('tr').data('index');
+                                console.log(data[index]);
+                                return '';
+                            }
+                        },
+                        footerFormatter: totalPriceFormatter
+                    }, {
+                        field: 'operate',
+                        title: '操作',
+                        align: 'center',
+                        events: operateEvents,
+                        formatter: operateFormatter
+                    }
+            ]
+        });
+        // sometimes footer render error.
+        setTimeout(function () {
+            $table.bootstrapTable('resetView');
+        }, 200);
+        $table.on('check.bs.table uncheck.bs.table ' +
+                'check-all.bs.table uncheck-all.bs.table', function () {
+            $remove.prop('disabled', !$table.bootstrapTable('getSelections').length);
+
+            // save your data, here just save the current page
+            selections = getIdSelections();
+            // push or splice the selections if you want to save all data selections
+        });
+        $table.on('expand-row.bs.table', function (e, index, row, $detail) {
+            if (index % 2 == 1) {
+                $detail.html('Loading from ajax request...');
+                $.get('LICENSE', function (res) {
+                    $detail.html(res.replace(/\n/g, '<br>'));
+                });
+            }
+        });
+        $table.on('all.bs.table', function (e, name, args) {
+            console.log(name, args);
+        });
+        $remove.click(function () {
+            var ids = getIdSelections();
+            $table.bootstrapTable('remove', {
+                field: 'id',
+                values: ids
+            });
+            $remove.prop('disabled', true);
+        });
+        $(window).resize(function () {
+            $table.bootstrapTable('resetView', {
+                height: getHeight()
+            });
+        });
+    }
+
+    function getIdSelections() {
+        return $.map($table.bootstrapTable('getSelections'), function (row) {
+            return row.id
+        });
+    }
+
+    function responseHandler(res) {
+        $.each(res.rows, function (i, row) {
+            row.state = $.inArray(row.id, selections) !== -1;
+        });
+        return res;
+    }
+
+    function detailFormatter(index, row) {
+        var html = [];
+        $.each(row, function (key, value) {
+            html.push('<p><b>' + key + ':</b> ' + value + '</p>');
+        });
+        return html.join('');
+    }
+
+    function operateFormatter(value, row, index) {
+        return [
+            '<a class="like" href="#myModal" data-target="#myModal2" title="Like" data-toggle="modal">',
+            '<i class="glyphicon glyphicon-pencil">编辑</i>',
+            '</a>  ',
+            '<a class="remove" href="javascript:void(0)" title="Remove">',
+            '<i class="glyphicon glyphicon-trash">删除</i>',
+            '</a>'
+        ].join('');
+    }
+    window.operateEvents = {
+{#        'click .like': function (e, value, row, index) {#}
+{#            alert('You click like action, row: ' + JSON.stringify(row));#}
+{#        },#}
+        'click .remove': function (e, value, row, index) {
+            $table.bootstrapTable('remove', {
+                field: 'id',
+                values: [row.id]
+            });
+        }
+    };
+    function totalTextFormatter(data) {
+        return 'Total';
+    }
+
+    function totalNameFormatter(data) {
+        return data.length;
+    }
+
+    function totalPriceFormatter(data) {
+        var total = 0;
+        $.each(data, function (i, row) {
+            total += +(row.price.substring(1));
+        });
+        return '$' + total;
+    }
+
+    function getHeight() {
+        return $(window).height() - 130;
+{#         return $(window).height() - $('h1').outerHeight(true);#}
+    }
+
+    $(function () {
+        var scripts = [
+                location.search.substring(1) || '/static/js/plugins/bootstrap-table/bootstrap-table.js',
+                '/static/js/plugins/bootstrap-table/bootstrap-table-export.js',
+                '/static/js/plugins/bootstrap-table/tableExport.js',
+                '/static/js/plugins/bootstrap-table/bootstrap-table-editable.js',
+                '/static/js/plugins/bootstrap-table/bootstrap-editable.js',
+                '/static/js/plugins/bootstrap-table/locale/bootstrap-table-zh-CN.js'
+            ],
+            eachSeries = function (arr, iterator, callback) {
+                callback = callback || function () {};
+                if (!arr.length) {
+                    return callback();
+                }
+                var completed = 0;
+                var iterate = function () {
+                    iterator(arr[completed], function (err) {
+                        if (err) {
+                            callback(err);
+                            callback = function () {};
+                        }
+                        else {
+                            completed += 1;
+                            if (completed >= arr.length) {
+                                callback(null);
+                            }
+                            else {
+                                iterate();
+                            }
+                        }
+                    });
+                };
+                iterate();
+            };
+
+        eachSeries(scripts, getScript, initTable);
+    });
+
+    function getScript(url, callback) {
+        var head = document.getElementsByTagName('head')[0];
+        var script = document.createElement('script');
+        script.src = url;
+
+        var done = false;
+        // Attach handlers for all browsers
+        script.onload = script.onreadystatechange = function() {
+            if (!done && (!this.readyState ||
+                    this.readyState == 'loaded' || this.readyState == 'complete')) {
+                done = true;
+                if (callback)
+                    callback();
+
+                // Handle memory leak in IE
+                script.onload = script.onreadystatechange = null;
+            }
+        };
+
+        head.appendChild(script);
+
+        // We handle everything using the script element injection
+        return undefined;
+    }
+</script>
+{% endblock %}
